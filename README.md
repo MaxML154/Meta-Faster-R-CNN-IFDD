@@ -2,7 +2,7 @@
 
 This is an adaptation of Meta Faster R-CNN to work with the IFDD (Few-shot NEU-DET, FS-ND) dataset for few-shot steel surface defect detection.
 
-*** Note that the current modifications are only effective on my device, and the configuration may differ on other devices. You may need to reconfigure. Additionally, due to differences in device performance, the final results may not be the same. ***
+***Note that the current modifications are only effective on my device, and the configuration may differ on other devices. You may need to reconfigure. Additionally, due to differences in device performance, the final results may not be the same.***
 
 ## IFDD Dataset
 
