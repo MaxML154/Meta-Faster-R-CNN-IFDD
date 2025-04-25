@@ -1,102 +1,104 @@
-# Meta-Faster-R-CNN
+# Meta Faster R-CNN with IFDD Dataset
 
-This repo contains the official PyTorch implementation for the AAAI 2022 Oral paper: 'Meta Faster R-CNN: Towards Accurate Few-Shot Object Detection with Attentive Feature Alignment' ([paper](https://arxiv.org/abs/2104.07719)).
+This is an adaptation of Meta Faster R-CNN to work with the IFDD (Few-shot NEU-DET, FS-ND) dataset for few-shot steel surface defect detection.
 
-<div align="center"><img src="assets/figure_1.png" width="600"></div>
+*** Note that the current modifications are only effective on my device, and the configuration may differ on other devices. You may need to reconfigure. Additionally, due to differences in device performance, the final results may not be the same. ***
 
-## Highlights
+## IFDD Dataset
 
-- Our model is a natural extension of Faster R-CNN for few-shot scenario with the prototype based metric-learning.
-- Our meta-learning based models achieve strong few-shot object detection performance without fine-tuning.
-- Our model can keep the knowledge of base classes by learning a separate Faster R-CNN detection head for base classes.
+Few-shot NEU-DET (FS-ND) is a dataset for few-shot steel surface defect detection, reconstructed from the famous [NEU-DET](https://ieeexplore.ieee.org/abstract/document/8709818) dataset.
+
+The dataset includes 6 classes of steel surface defects:
+- Base classes (used in meta-training): 
+  - inclusion
+  - rolled-in scales
+  - scratches
+- Novel classes (used in few-shot fine-tuning): 
+  - crazing
+  - patches
+  - pitted surface
+
+The dataset can be downloaded from [here](https://drive.google.com/drive/folders/1Somtykp_DwqGTe5by9PEfPDxPqYRFu-L).
 
 ## Installation
 
-Our codebase is built upon [detectron2](https://github.com/facebookresearch/detectron2). You only need to install [detectron2](https://github.com/facebookresearch/detectron2/blob/main/INSTALL.md) following their instructions.
-
-Please note that we used detectron 0.2.1 in this project. Higher versions of detectron might report errors.
+Follow the original installation instructions from the main [README.md](README.md) to install [detectron2](https://github.com/facebookresearch/detectron2/blob/main/INSTALL.md).
 
 ## Data Preparation
 
-- We evaluate our model on two FSOD benchmarks PASCAL VOC and MSCOCO following the previous work [TFA](https://github.com/ucbdrive/few-shot-object-detection).
-- Please prepare the original PASCAL VOC and MSCOCO datasets and also the few-shot datasets following [TFA](https://github.com/ucbdrive/few-shot-object-detection/blob/master/datasets/README.md) in the folder ./datasets/coco and ./datasets/pascal_voc respectively.
-- Please run the scripts in ./datasets/coco and ./datasets/pascal_voc step by step to generate the support images for both many-shot base classes (used during meta-training) and few-shot classes (used during few-shot fine-tuning).
+1. Download the IFDD dataset and place it in `./datasets/ifdd/`.
 
-## Model training and evaluation on MSCOCO
+2. Process the dataset into COCO format:
 
-- We have three training stages, first meta-training, then training the base-classes detection head, and finally few-shot fine-tuning.
-- During meta-training, we have three training steps. First, we train the baseline model following [FewX](https://github.com/fanq15/FewX). Then we add the
-whole feature fusion network in both Meta-RPN and Meta-Classifier, and finally add the proposed attentive feature alignment. The training script is
 ```
-sh scripts/meta_training_coco_resnet101_multi_stages.sh
-```
-after meta-training, the model are directly evaluated on novel classes without fine-tuning.
+# Process NEU-DET-METATRAIN dataset
+python datasets/ifdd/3_prepare_meta_training.py --neu_det_path /path/to/NEU-DET-METATRAIN --output_path ./datasets/ifdd
 
-- We a separate Faster R-CNN detection head for base classes, using the shared feature backbone as the first step. The training script is
-```
-sh scripts/faster_rcnn_with_fpn_coco_base_classes_branch.sh
+# Process k-shot datasets for few-shot fine-tuning
+python datasets/ifdd/2_gen_support_pool.py --data_path ./datasets/ifdd --k_shot 5 --num_sets 100
+python datasets/ifdd/2_gen_support_pool.py --data_path ./datasets/ifdd --k_shot 10 --num_sets 100
+python datasets/ifdd/2_gen_support_pool.py --data_path ./datasets/ifdd --k_shot 30 --num_sets 100
 ```
 
-- We perform 1/2/3/5/10/30-shot fine-tuning over novel classes after the three-step meta-training, using the exact same few-shot datasets as [TFA](https://github.com/ucbdrive/few-shot-object-detection). The training script is
+## Training and Evaluation Process
+
+The training process follows three stages similar to the original Meta Faster R-CNN:
+
+### 1. Meta-training
+
+Meta-training on base classes (inclusion, rolled-in scales, scratches):
+
 ```
-sh scripts/few_shot_finetune_coco_resnet101.sh
+sh scripts/meta_training_ifdd_resnet101_multi_stages.sh
 ```
 
-## Model training and evaluation on PASCAL VOC
+This script performs the three-step meta-training:
+- First, train the baseline model
+- Then add the feature fusion network in both Meta-RPN and Meta-Classifier
+- Finally, add the attentive feature alignment
 
-- We evaluate our model on the three splits as [TFA](https://github.com/ucbdrive/few-shot-object-detection).
-- Similar as MSCOCO, we have three training stages, and three training steps during meta-training. 
-- The training scripts for VOC split1 is 
+### 2. Training Base Classes Detection Head
+
+Train a separate Faster R-CNN detection head for base classes:
+
 ```
-sh scripts/meta_training_pascalvoc_split1_resnet101_multi_stages.sh
-sh scripts/faster_rcnn_with_fpn_pascalvoc_split1_base_classes_branch.sh
-sh scripts/few_shot_finetune_pascalvoc_split1_resnet101.sh
-```
-- The training scripts for VOC split2 is 
-```
-sh scripts/meta_training_pascalvoc_split2_resnet101_multi_stages.sh
-sh scripts/faster_rcnn_with_fpn_pascalvoc_split2_base_classes_branch.sh
-sh scripts/few_shot_finetune_pascalvoc_split2_resnet101.sh
-```
-- The training scripts for VOC split3 is 
-```
-sh scripts/meta_training_pascalvoc_split3_resnet101_multi_stages.sh
-sh scripts/faster_rcnn_with_fpn_pascalvoc_split3_base_classes_branch.sh
-sh scripts/few_shot_finetune_pascalvoc_split3_resnet101.sh
+sh scripts/faster_rcnn_with_fpn_ifdd_base_classes_branch.sh
 ```
 
-## Model Zoo 
+### 3. Few-shot Fine-tuning
 
-We provided the meta-trained models over base classes for both MSCOCO dataset and the 3 splits on VOC dataset. The model links are [Google Drive](https://drive.google.com/drive/u/0/folders/11ODEuV1iaKRZp_XQgEfnuwmIK00FIv1S) and [Tencent Weiyun](https://share.weiyun.com/PeBdgBLY).
+Perform 5/10/30-shot fine-tuning on novel classes (crazing, patches, pitted surface):
 
-## Citing Meta-Faster-R-CNN
-If you use this work in your research or wish to refer to the baseline results published here, please use the following BibTeX entries:
 ```
-@inproceedings{han2022meta,
-  title={Meta faster r-cnn: Towards accurate few-shot object detection with attentive feature alignment},
-  author={Han, Guangxing and Huang, Shiyuan and Ma, Jiawei and He, Yicheng and Chang, Shih-Fu},
-  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
-  volume={36},
-  number={1},
-  pages={780--789},
-  year={2022}
+sh scripts/few_shot_finetune_ifdd_resnet101.sh
+```
+
+## Evaluation
+
+After training, the model will be evaluated on the novel classes with the specified number of support shots.
+
+## Configurations
+
+All configuration files are in the `configs/ifdd` directory:
+- `Base-IFDD-C4.yaml`: Base configuration for IFDD dataset
+- `meta_training_ifdd_resnet101_stage_*.yaml`: Configurations for the three stages of meta-training
+- `faster_rcnn_with_fpn_ifdd_base_classes_branch.yaml`: Configuration for training base classes
+- `*shot_finetune_ifdd_resnet101.yaml`: Configurations for few-shot fine-tuning with different numbers of shots
+
+## Credits
+
+This adaptation is based on the following works:
+- [Meta Faster R-CNN](https://arxiv.org/abs/2104.07719) by Han et al.
+- [Few-Shot Steel Surface Defect Detection](https://ieeexplore.ieee.org/abstract/document/9623595) by Wang et al.
+
+
+If you use the IFDD dataset, please cite:
+```
+@article{wang2021few,
+  title={Few-Shot Steel Surface Defect Detection},
+  author={Wang, Haohan and Li, Zhuoling and Wang, Haoqian},
+  journal={IEEE Transactions on Instrumentation and Measurement},
+  year={2021},
+  publisher={IEEE}
 }
-@inproceedings{fan2020few,
-  title={Few-shot object detection with attention-RPN and multi-relation detector},
-  author={Fan, Qi and Zhuo, Wei and Tang, Chi-Keung and Tai, Yu-Wing},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
-  pages={4013--4022},
-  year={2020}
-}
-@inproceedings{wang2020frustratingly,
-  title={Frustratingly simple few-shot object detection},
-  author={Wang, Xin and Huang, Thomas E and Darrell, Trevor and Gonzalez, Joseph E and Yu, Fisher},
-  booktitle={Proceedings of the 37th International Conference on Machine Learning},
-  pages={9919--9928},
-  year={2020}
-}
-```
-
-## Acknowledgement
-
-This repo is developed based on [FewX](https://github.com/fanq15/FewX), [TFA](https://github.com/ucbdrive/few-shot-object-detection) and [detectron2](https://github.com/facebookresearch/detectron2). Thanks for their wonderful codebases.
+``` 
