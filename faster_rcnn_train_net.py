@@ -16,7 +16,7 @@ from detectron2.engine import DefaultTrainer, default_argument_parser, default_s
 
 from meta_faster_rcnn.config import get_cfg
 from meta_faster_rcnn.data.build import build_detection_train_loader, build_detection_test_loader
-from meta_faster_rcnn.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator
+from meta_faster_rcnn.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator, IFDDEvaluator
 
 import bisect
 import copy
@@ -36,7 +36,9 @@ class Trainer(DefaultTrainer):
     def build_evaluator(cls, cfg, dataset_name, output_folder=None):
         if output_folder is None:
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
-        if 'coco' in dataset_name:
+        if 'ifdd' in dataset_name:
+            return IFDDEvaluator(dataset_name, cfg, True, output_folder)
+        elif 'coco' in dataset_name:
             return COCOEvaluator(dataset_name, cfg, True, output_folder)
         else:
             return PascalVOCDetectionEvaluator(dataset_name)

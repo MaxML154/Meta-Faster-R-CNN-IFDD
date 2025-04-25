@@ -23,10 +23,10 @@ from detectron2.evaluation import (
 )
 
 from meta_faster_rcnn.config import get_cfg
-from meta_faster_rcnn.data import DatasetMapperWithSupportCOCO, DatasetMapperWithSupportVOC
+from meta_faster_rcnn.data import DatasetMapperWithSupportCOCO, DatasetMapperWithSupportVOC, DatasetMapperWithSupportIFDD
 from meta_faster_rcnn.data.build import build_detection_train_loader, build_detection_test_loader
 from meta_faster_rcnn.solver import build_optimizer
-from meta_faster_rcnn.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator
+from meta_faster_rcnn.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator, IFDDEvaluator
 
 import bisect
 import copy
@@ -34,7 +34,6 @@ import itertools
 import logging
 import numpy as np
 import operator
-import pickle
 import torch.utils.data
 from collections import OrderedDict
 
@@ -51,7 +50,9 @@ class Trainer(DefaultTrainer):
         It calls :func:`detectron2.data.build_detection_train_loader` with a customized
         DatasetMapper, which adds categorical labels as a semantic mask.
         """
-        if 'coco' in cfg.DATASETS.TRAIN[0]:
+        if 'ifdd' in cfg.DATASETS.TRAIN[0]:
+            mapper = DatasetMapperWithSupportIFDD(cfg)
+        elif 'coco' in cfg.DATASETS.TRAIN[0]:
             mapper = DatasetMapperWithSupportCOCO(cfg)
         else:
             mapper = DatasetMapperWithSupportVOC(cfg)
@@ -81,7 +82,9 @@ class Trainer(DefaultTrainer):
     def build_evaluator(cls, cfg, dataset_name, output_folder=None):
         if output_folder is None:
             output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
-        if 'coco' in dataset_name:
+        if 'ifdd' in dataset_name:
+            return IFDDEvaluator(dataset_name, cfg, True, output_folder)
+        elif 'coco' in dataset_name:
             return COCOEvaluator(dataset_name, cfg, True, output_folder)
         else:
             return PascalVOCDetectionEvaluator(dataset_name)
@@ -132,6 +135,11 @@ class Trainer(DefaultTrainer):
                 evaluation_dataset = 'coco'
                 coco_test_shots_set = set([1,2,3,5,10,30])
                 test_shots_join = cur_test_shots_set.intersection(coco_test_shots_set)
+                test_keepclasses = cfg.DATASETS.TEST_KEEPCLASSES
+            elif 'ifdd' in cfg.DATASETS.TRAIN[0]:
+                evaluation_dataset = 'ifdd'
+                ifdd_test_shots_set = set([5,10,30])
+                test_shots_join = cur_test_shots_set.intersection(ifdd_test_shots_set)
                 test_keepclasses = cfg.DATASETS.TEST_KEEPCLASSES
             else:
                 evaluation_dataset = 'voc'

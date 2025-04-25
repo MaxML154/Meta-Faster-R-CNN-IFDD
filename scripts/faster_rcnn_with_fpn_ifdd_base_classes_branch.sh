@@ -1,0 +1,2 @@
+CUDA_VISIBLE_DEVICES=0,1,2,3 python3 fsod_train_net.py --num-gpus 4 --dist-url auto \
+	--config-file configs/ifdd/faster_rcnn_with_fpn_ifdd_base_classes_branch.yaml 2>&1 | tee log/faster_rcnn_with_fpn_ifdd_base_classes_branch.txt 
